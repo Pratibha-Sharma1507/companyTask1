@@ -6,7 +6,6 @@ const salt = 10;
 const signup = async (req, res) => {
   try {
     const { userid, name, password } = req.body;
-    // console.log(req.body);
     const query = "SELECT * FROM users WHERE userid = ?";
     const query1 = "INSERT INTO users SET ?";
     const salt = await bcrypt.genSalt(10);
@@ -17,7 +16,6 @@ const signup = async (req, res) => {
       userid,
       name,
       password: pass
-
     };
     connection.query(query, [userid], (error, result) => {
       if (result.length) {
@@ -34,14 +32,12 @@ const signup = async (req, res) => {
     res.send(err.sqlMessage);
   }
 };
-
 const login = async (req, res) => {
   const { userid, password } = req.body;
   const sql = "SELECT * FROM users WHERE userid = ?";
   connection.query(sql, [userid, password], (err, data) => {
     if (err) return res.json({ Error: "Login error in server" });
     if (data.length > 0) {
-
       bcrypt.compare(req.body.password.toString(), data[0].password, (err, response) => {
         if (err) return res.json({ Error: "Password compare error" });
         if (response) {
@@ -53,14 +49,13 @@ const login = async (req, res) => {
             if (roleData.length > 0) {
               // console.log(roleData)
               const rolename = roleData[0].rolename;
-
-              const accessToken = jwt.sign({ userid, rolename }, "jwt-secret-key", { expiresIn: '15m' }); // Access token expires in 15 minutes
-              const refreshToken = jwt.sign({ userid }, "refresh-token-secret-key", { expiresIn: '7d' }); // Refresh token expires in 7 days
+              const accessToken = jwt.sign({ userid, rolename }, "jwt-secret-key", { expiresIn: '10s' }); // Access token expires in 15 minutes
+              const refreshToken = jwt.sign({ userid, rolename }, "jwt-secret-key", { expiresIn: '7d' }); // Refresh token expires in 7 days
               // Set tokens and user id in cookies
               res.cookie('access_token', accessToken, { httpOnly: true });
               res.cookie("refresh_token", refreshToken, { httpOnly: true });
               res.cookie("id", userid);
-              
+
               const roles = roleData.map(role => role.rolename);
               if (roles == 'admin') {                       //When employee is Admin
                 res.json("You have all admin rights");
@@ -78,7 +73,7 @@ const login = async (req, res) => {
                 res.json("You have authorization of Cleark and HR")
               }
               else {
-                return res.json({ Error: "No role assigned to the user", role:roles });
+                return res.json({ Error: "No role assigned to the user", role: roles });
               }
             }
           });
@@ -96,4 +91,27 @@ const logout = (req, res) => {
   res.clearCookie('refresh_token');
   return res.status(200).json({ message: "Logout successful" });
 };
-module.exports = { signup, login, logout }
+const protectedRoute = async (req, res) => {
+  try {
+    res.send("welcome to protected route")
+
+  } catch (error) {
+    return res.json({ Error: error.message });
+
+  }
+}
+const refreshToken = async (req, res) => {
+  const refreshToken = req.cookies['refresh_token'];
+  if (!refreshToken) {
+    return res.status(401).send('Access Denied. No refresh token provided.');
+  }
+  try {
+    const decoded = jwt.verify(refreshToken, "jwt-secret-key");
+    const accessToken = jwt.sign({ userid: decoded.userid, rolename: decoded.rolename }, 'jwt-secret-key', { expiresIn: '10s' });
+    res.cookie('access_token', accessToken, { httpOnly: true });
+    res.status(200).json({ message: "Token Created" });
+  } catch (error) {
+    return res.status(400).json({ Error: error.message });
+  }
+};
+module.exports = { signup, login, logout, protectedRoute, refreshToken }

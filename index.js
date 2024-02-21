@@ -1,8 +1,11 @@
 const express = require('express');
+const userRouter = require('./Route/userRoute/userRoute');
+const cookieParser = require("cookie-parser")
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 
-const userRouter = require('./Route/userRoute/userRoute');
+
 app.use('/', userRouter);
   
 const port=7700;
